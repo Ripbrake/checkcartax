@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build checkcartax.com static site. Usage: python3 build.py  (writes HTML into repo root)."""
-import json, os, html, datetime, pathlib, sys
+import json, os, html, datetime, pathlib, sys, re
 sys.path.insert(0, "src")
 from content import PAGES
 
@@ -81,6 +81,13 @@ def render(p):
         f"""<main id="main"><section class="hero{' home' if hero_img else ''}"><div class="w">{crumb}<div class="hg"><div><h1>{esc(p['h1'])}</h1>{intro}{plate(0)}</div>{hero_img}</div></div></section>
 {steps}<article class="w prose">{body}{faq}</article></main>""" + foot())
 
+def relativize(doc, depth):
+    """Make site-internal URLs relative so pages work both at / and under a github.io project path."""
+    pre = "../" * depth or "./"
+    doc = re.sub(r'(href|src)="/(?!/)', lambda m: f'{m.group(1)}="{pre}', doc)
+    doc = re.sub(r'(srcset="|, )/assets/', lambda m: m.group(1) + pre + "assets/", doc)
+    return doc.replace(f'href="{pre}"', f'href="{pre}"')
+
 def main():
     errs = []
     titles, descs, h1s = set(), set(), set()
@@ -92,7 +99,7 @@ def main():
             s.add(v)
         out = ROOT / ("index.html" if p["path"] == "" else (p["path"] + "index.html" if p["path"].endswith("/") else p["path"] + ".html"))
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(render(p))
+        out.write_text(relativize(render(p), p["path"].count("/")))
     if errs: sys.exit("\n".join(errs))
     nf = head("Page not found | Check Car Tax", "Sorry, we couldn't find that page. Check a vehicle's tax status or browse our UK car tax guides.", "", "", '<meta name="robots" content="noindex">')
     nf += f"""<main id="main"><section class="hero"><div class="w"><h1>Page not found</h1><p class="lead">Sorry, that page doesn't exist or has moved. You can still check a vehicle's tax below, or go to the <a href="/">homepage</a>.</p>{plate(0)}</div></section>
